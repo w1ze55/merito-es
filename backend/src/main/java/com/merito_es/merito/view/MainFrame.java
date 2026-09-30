@@ -1,5 +1,9 @@
 package com.merito_es.merito.view;
 
+import com.merito_es.merito.service.AbastecimentoService;
+import com.merito_es.merito.service.BombaCombustivelService;
+import com.merito_es.merito.service.TipoCombustivelService;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
@@ -10,9 +14,14 @@ import java.awt.*;
 
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class MainFrame {
 
 	private static final String TITULO = "Posto de Combustível - Abastecimentos";
+
+	private final TipoCombustivelService tipoCombustivelService;
+	private final BombaCombustivelService bombaCombustivelService;
+	private final AbastecimentoService abastecimentoService;
 
 	@EventListener(ApplicationReadyEvent.class)
 	public void iniciar() {
@@ -32,18 +41,20 @@ public class MainFrame {
 		frame.setLocationRelativeTo(null);
 
 		JTabbedPane abas = new JTabbedPane();
-		abas.addTab("Tipos de Combustível", emConstrucao());
-		abas.addTab("Bombas", emConstrucao());
-		abas.addTab("Abastecimentos", emConstrucao());
+		abas.addTab("Tipos de Combustível", new TipoCombustivelPanel(tipoCombustivelService));
+		abas.addTab("Bombas", new BombaCombustivelPanel(bombaCombustivelService, tipoCombustivelService));
+		abas.addTab("Abastecimentos", new AbastecimentoPanel(abastecimentoService, bombaCombustivelService));
+		abas.addChangeListener(evento -> atualizarAbaSelecionada(abas));
+		atualizarAbaSelecionada(abas);
 
 		frame.add(abas);
 		frame.setVisible(true);
 	}
 
-	private JPanel emConstrucao() {
-		JPanel painel = new JPanel(new BorderLayout());
-		painel.add(new JLabel("Em construção", SwingConstants.CENTER), BorderLayout.CENTER);
-		return painel;
+	private void atualizarAbaSelecionada(JTabbedPane abas) {
+		if (abas.getSelectedComponent() instanceof PainelCadastro<?> painel) {
+			painel.atualizar();
+		}
 	}
 
 	private void usarVisualDoSistemaOperacional() {
