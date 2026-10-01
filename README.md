@@ -1,73 +1,118 @@
-# 🔹 Desafio Técnico Júnior #1 – Cadastro e Consulta de Abastecimentos
+# ⛽ Cadastro e Consulta de Abastecimentos · branch `homolog`
+
+> 🔹 **Caro recrutador**, esta branch é um **diferencial**: um espaço para mostrar habilidades que vão além do que o desafio pede.
+> A solução do desafio, com tudo o que foi solicitado, está na branch [`main`](https://github.com/w1ze55/merito-es/tree/main).
+
+---
 
 ## 🛠 Objetivo
 
-Desenvolver uma aplicação simples em **Java** para cadastro e consulta de abastecimentos em um posto de combustível, com armazenamento em banco de dados e exibição dos dados via **Java Swing** ou **API REST**.
+Levar o sistema do desktop para a web:
+
+- **Interface web** para melhorar a UI/UX em relação às telas Java Swing.
+- **Hospedagem na AWS** com práticas de DevOps: conteinerização, banco gerenciado, CDN e deploy automatizado.
+
+| | `main` | `homolog` |
+|---|---|---|
+| Interface | Java Swing | Web (React, frontend estático) |
+| API | REST local | REST hospedada na EC2 |
+| Banco | MySQL no Docker local | Aurora MySQL (RDS) |
+| Deploy | Manual | GitHub Actions (CI/CD) |
 
 ---
 
-## 📌 Funcionalidades Implementadas
+## 🧱 Stack
 
-✅ Operaçoes basicas (Criar, Listar, Alterar, Deletar) de **Tipos de Combustível** 
-- Nome - Texto
-- Preço por litro
-
-✅ Operaçoes basicas (Criar, Listar, Alterar, Deletar) de **Bombas de Combustível** (relacionadas a um tipo de combustível)
-- Nome da bomba
-- Combustivel que abastece
-
-✅ Operaçoes basicas (Criar, Listar, Alterar, Deletar)  de **Abastecimentos** (com data, volume abastecido e valor total)
-- Bomba que foi realizado o abastecimento
-- Data do abastecimento
-- Quantidade em valores
-- Litragem
-  
-✅ **Consulta** de todos os dados cadastrados (via Java Swing ou API)  
-✅ Persistência dos dados (ao menos em tempo de execução)  
+| Camada | Tecnologia | Papel |
+|---|---|---|
+| Banco de dados | **MySQL no RDS Aurora** | Banco gerenciado, com backups automáticos e alta disponibilidade |
+| Backend | **Spring Boot + Docker** | API REST empacotada em imagem Docker |
+| Servidor | **EC2** | Executa o container da API |
+| Frontend | **S3** | Hospeda os arquivos estáticos da interface web |
+| Domínio / CDN | **CloudFront** | Domínio próprio, HTTPS, cache e roteamento entre S3 e EC2 |
+| CI/CD | **GitHub Actions** | Build, testes e deploy automáticos a cada push na `homolog` |
 
 ---
 
-## ✅ Requisitos Atendidos
+## 🔄 Pipeline CI/CD
 
-- Projeto Java com estrutura organizada (usando Maven ou Gradle)
-- Relacionamentos entre entidades corretamente implementados
-- Interface gráfica Java Swing **ou** API HTTP para cadastro e consulta
-- Código comentado e organizado
+A cada push na `homolog`:
 
----
+1. **Build e testes** do backend com Maven
+2. **Build da imagem Docker** da API
+3. **Deploy na EC2**: o container é atualizado com a nova imagem
+4. **Build do frontend** e upload para o **S3**
+5. **Invalidação do cache** do CloudFront, para a versão nova entrar no ar na hora
 
-## 🌟 Diferenciais Implementados
-
-- API RESTful simples com rotas `GET`, `POST`, `PUT`
-- Boas práticas de organização de código (DAO, camada de serviço, etc.)
-- Persistencia dos dados (em caso de restart da aplicação manter os dados)
-- 
----
-
-## 📬 Como entregar o desafio
-
-1. **Faça um fork** deste repositório.
-2. Implemente a solução no seu fork.
-3. Faça commits organizados com mensagens claras.
-4. Após finalizar:
-   - Envie o link do **repositório forkado** com a sua solução.
-   - Certifique-se de que o projeto roda sem erros e que o README está atualizado.
-
----
-## 🔍 O que será avaliado
-
-- Sua **comunicação**, especialmente ao surgir dúvidas ou obstáculos durante o desenvolvimento.
-- **O processo de desenvolvimento** como um todo, e não apenas o resultado final.
-- A clareza e organização dos **commits** realizados.
-- Sua capacidade de **estruturar a solução em etapas**, mesmo que nem todos os requisitos sejam concluídos.
+Credenciais da AWS e do banco ficam no **GitHub Secrets**; nada sensível é versionado.
 
 ---
 
-## 💡 Dicas para se sair bem
+## 📌 Roadmap dos diferenciais
 
-- Divida o desafio em **pequenas partes** e implemente **com calma**, focando em cada funcionalidade por vez.
-- Use **commits claros e objetivos**, indicando exatamente o que foi alterado ou implementado.
-- Em caso de dúvida, **comunique-se** — mostrar que você sabe buscar soluções é um ponto positivo.
-- Mesmo que não finalize 100% dos requisitos, **a qualidade do seu processo será levada em conta**.
+- [ ] `Dockerfile` multi-stage do backend
+- [ ] Perfil de produção sem Swing (o `MainFrame` não deve subir no servidor)
+- [ ] Interface web consumindo a API REST
+- [ ] Banco MySQL no RDS Aurora (o schema é criado pelas migrations do Flyway)
+- [ ] API rodando em container na EC2
+- [ ] Frontend hospedado no S3
+- [ ] CloudFront com domínio e HTTPS
+- [ ] Pipeline de CI/CD no GitHub Actions
 
 ---
+
+## ⚙️ Configuração
+
+A conexão com o banco é feita por variáveis de ambiente, então o mesmo código roda local ou na AWS:
+
+| Variável | Local (padrão) | Homolog |
+|---|---|---|
+| `DB_URL` | `jdbc:mysql://localhost:4306/abastecimento` | Endpoint do cluster Aurora |
+| `DB_USERNAME` | `merito` | Usuário do Aurora |
+| `DB_PASSWORD` | `merito` | Senha do Aurora (via GitHub Secrets) |
+
+---
+
+## 🚀 Rodando localmente
+
+Pré-requisitos: **Java 25** e **Docker**.
+
+```bash
+# sobe o MySQL na porta 4306
+docker compose up -d
+
+# sobe a aplicação (API + telas Swing)
+cd backend
+./mvnw spring-boot:run
+```
+
+O Flyway cria as tabelas na primeira execução.
+
+---
+
+## 🔗 Endpoints da API
+
+| Recurso | Rota base |
+|---|---|
+| Tipos de combustível | `/api/tipos-combustivel` |
+| Bombas de combustível | `/api/bombas` |
+| Abastecimentos | `/api/abastecimentos` |
+
+Cada recurso expõe:
+
+| Método | Rota | Ação |
+|---|---|---|
+| `GET` | `/` | Lista todos |
+| `GET` | `/{id}` | Busca por id |
+| `POST` | `/` | Cadastra |
+| `PUT` | `/{id}` | Altera |
+| `DELETE` | `/{id}` | Remove |
+
+---
+
+## ✅ Base herdada da `main`
+
+- CRUD de **tipos de combustível**, **bombas** (ligadas a um tipo de combustível) e **abastecimentos** (com bomba, data, litragem e valor)
+- Interface **Java Swing** e **API REST** sobre a mesma camada de serviço
+- Camadas organizadas: `controller`, `service`, `repository`, `model` e `dto`
+- Persistência em **MySQL**, com schema versionado pelo **Flyway**
