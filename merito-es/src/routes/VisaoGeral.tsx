@@ -169,9 +169,9 @@ export function VisaoGeral() {
                     return (
                       <tr key={tipo.id}>
                         <td><Combustivel nome={tipo.nome} tinta={tinta} /></td>
-                        <td className="col-valor" data-rotulo="Abastecimentos">{soma.quantidade === 0 ? <span className="apagado">—</span> : inteiro(soma.quantidade)}</td>
-                        <td className="col-valor">{soma.quantidade === 0 ? <span className="apagado">—</span> : litros(soma.litros)}</td>
-                        <td className="col-valor col-forte">{soma.quantidade === 0 ? <span className="apagado">—</span> : moeda(soma.valor)}</td>
+                        <td className="col-valor" data-rotulo="Abastecimentos">{soma.quantidade === 0 ? <span className="apagado">nenhum</span> : inteiro(soma.quantidade)}</td>
+                        <td className="col-valor">{soma.quantidade === 0 ? <span className="apagado">{litros(0)}</span> : litros(soma.litros)}</td>
+                        <td className="col-valor col-forte">{soma.quantidade === 0 ? <span className="apagado">{moeda(0)}</span> : moeda(soma.valor)}</td>
                         <td className="col-participacao">
                           <span className="participacao">
                             <span className="participacao__trilho">
@@ -248,9 +248,9 @@ export function VisaoGeral() {
                         <tr key={bomba.id}>
                           <td className="col-forte">{bomba.nome}</td>
                           <td><Combustivel nome={bomba.tipoCombustivel.nome} tinta={tintaDe(bomba.tipoCombustivel.id)} /></td>
-                          <td className="col-valor" data-rotulo="Abastecimentos">{soma ? inteiro(soma.quantidade) : <span className="apagado">—</span>}</td>
-                          <td className="col-valor">{soma ? litros(soma.litros) : <span className="apagado">—</span>}</td>
-                          <td className="col-valor col-forte">{soma ? moeda(soma.valor) : <span className="apagado">—</span>}</td>
+                          <td className="col-valor" data-rotulo="Abastecimentos">{soma ? inteiro(soma.quantidade) : <span className="apagado">nenhum</span>}</td>
+                          <td className="col-valor">{soma ? litros(soma.litros) : <span className="apagado">{litros(0)}</span>}</td>
+                          <td className="col-valor col-forte">{soma ? moeda(soma.valor) : <span className="apagado">{moeda(0)}</span>}</td>
                           <td className="col-data" data-rotulo="Último">{soma?.ultimo ? dataHora(soma.ultimo) : <span className="apagado">sem movimento</span>}</td>
                         </tr>
                       )

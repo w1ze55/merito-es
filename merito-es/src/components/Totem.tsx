@@ -81,8 +81,8 @@ export function Totem() {
           <NavLink key={servico.para} to={servico.para} end className="servico">
             <Icone nome={servico.icone} tamanho={22} />
             <span className="servico__rotulo">{servico.rotulo}</span>
-            {servico.contagem !== undefined && (
-              <span className="servico__contagem">{semConexao ? <span aria-label="sem dados">—</span> : inteiro(servico.contagem)}</span>
+            {servico.contagem !== undefined && !semConexao && (
+              <span className="servico__contagem">{inteiro(servico.contagem)}</span>
             )}
           </NavLink>
         ))}

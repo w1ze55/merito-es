@@ -178,7 +178,7 @@ export function Bombas() {
                     <td><Combustivel nome={bomba.tipoCombustivel.nome} tinta={tintaDe(bomba.tipoCombustivel.id)} /></td>
                     <td className="col-valor"><Preco valor={bomba.tipoCombustivel.precoPorLitro} /></td>
                     <td className="col-valor" data-rotulo="Abastecimentos">{n === 0 ? <span className="apagado">nenhum</span> : inteiro(n)}</td>
-                    <td className="col-valor">{n === 0 ? <span className="apagado">—</span> : litros(litrosPorBomba.get(bomba.id) ?? 0)}</td>
+                    <td className="col-valor">{n === 0 ? <span className="apagado">{litros(0)}</span> : litros(litrosPorBomba.get(bomba.id) ?? 0)}</td>
                     <td className="col-acoes">
                       <AcoesDaLinha
                         descricao={bomba.nome}

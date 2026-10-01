@@ -163,7 +163,7 @@ export function GraficoDiario({ colunas, tipos, tintaDe }: { colunas: Coluna[]; 
                   <th scope="row">{coluna.rotulo}</th>
                   {coluna.partes.map((parte) => (
                     <td key={parte.tipoId} className="col-valor">
-                      {parte.valor > 0 ? moeda(parte.valor) : <span className="apagado">—</span>}
+                      {parte.valor > 0 ? moeda(parte.valor) : <span className="apagado">{moeda(0)}</span>}
                     </td>
                   ))}
                   <td className="col-valor col-forte">{moeda(totais[i])}</td>

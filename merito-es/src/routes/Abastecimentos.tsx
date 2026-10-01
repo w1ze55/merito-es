@@ -114,7 +114,7 @@ function FormAbastecimento({
               Total
               {bomba && <span className="total__combustivel"> · {bomba.tipoCombustivel.nome}</span>}
             </span>
-            <span className="placa__valor">{previa === null ? 'R$ —' : moeda(previa)}</span>
+            <span className="placa__valor">{previa === null ? <span className="apagado">{moeda(0)}</span> : moeda(previa)}</span>
           </span>
           <span className="total__nota">{bomba ? 'Prévia; a API calcula ao salvar' : 'Escolha a bomba para ver o total'}</span>
         </div>
