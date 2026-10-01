@@ -16,7 +16,7 @@ Levar o sistema do desktop para a web:
 |---|---|---|
 | Interface | Java Swing | Web (React, frontend estático) |
 | API | REST local | REST hospedada na EC2 |
-| Banco | MySQL no Docker local | Aurora MySQL (RDS) |
+| Banco | MySQL no Docker local | MySQL no RDS |
 | Infraestrutura | Docker Compose local | Terraform (infra como código) |
 | Deploy | Manual | GitHub Actions (CI/CD) |
 
@@ -26,7 +26,7 @@ Levar o sistema do desktop para a web:
 
 | Camada | Tecnologia | Papel |
 |---|---|---|
-| Banco de dados | **MySQL no RDS Aurora** | Banco gerenciado, com backups automáticos e alta disponibilidade |
+| Banco de dados | **MySQL 8.4 no RDS** | Banco gerenciado, com backups automáticos, na mesma versão do ambiente local |
 | Backend | **Spring Boot + Docker** | API REST empacotada em imagem Docker |
 | Servidor | **EC2** | Executa o container da API |
 | Frontend | **S3** | Hospeda os arquivos estáticos da interface web |
@@ -58,7 +58,7 @@ O workflow está em [`.github/workflows/homolog.yml`](.github/workflows/homolog.
 - [x] Perfil de produção sem Swing (o `MainFrame` não sobe com o perfil `prod`)
 - [x] Interface web consumindo a API REST
 - [x] Infraestrutura como código com Terraform
-- [ ] Banco MySQL no RDS Aurora (o schema é criado pelas migrations do Flyway)
+- [ ] Banco MySQL no RDS (o schema é criado pelas migrations do Flyway)
 - [ ] API rodando em container na EC2
 - [ ] Frontend hospedado no S3
 - [ ] CloudFront com HTTPS (domínio próprio depois)
@@ -72,8 +72,8 @@ A conexão com o banco é feita por variáveis de ambiente, então o mesmo códi
 
 | Variável | Local (padrão) | Homolog |
 |---|---|---|
-| `DB_URL` | `jdbc:mysql://localhost:4306/abastecimento` | Endpoint do cluster Aurora |
-| `DB_USERNAME` | `merito` | Usuário do Aurora |
+| `DB_URL` | `jdbc:mysql://localhost:4306/abastecimento` | Endpoint do RDS |
+| `DB_USERNAME` | `merito` | Usuário do RDS |
 | `DB_PASSWORD` | `merito` | Gerada pelo Terraform e lida do SSM Parameter Store |
 
 No container, o perfil `prod` fica ativo e a JVM roda em modo headless, então só a API REST sobe.
@@ -121,20 +121,22 @@ Toda a infra da AWS está em [`infra/`](infra/) e é criada com um `terraform ap
 
 ```
 Navegador ─HTTPS─► CloudFront ─┬─ /* ──────────────► S3 (frontend, privado)
-                               └─ /api/*, swagger ─► EC2 (container da API) ─► Aurora (subnet privada)
+                               └─ /api/*, swagger ─► EC2 (container da API) ─► RDS MySQL (subnet privada)
 ```
 
 | Arquivo | O que cria |
 |---|---|
-| `network.tf` | VPC própria, subnets públicas (EC2) e privadas (Aurora), security groups |
-| `database.tf` | Aurora MySQL Serverless v2, que pausa quando ocioso, e os parâmetros do banco no SSM |
+| `network.tf` | VPC própria, subnets públicas (EC2) e privadas (RDS), security groups |
+| `database.tf` | RDS MySQL 8.4 (`db.t4g.micro`) e os parâmetros do banco no SSM |
 | `ecr.tf` | Repositório das imagens da API |
 | `ec2.tf` | EC2 com Docker, role com permissões mínimas e o script de deploy |
 | `frontend.tf` | Bucket S3 privado, lido só pelo CloudFront |
 | `cdn.tf` | Distribuição CloudFront, com rewrite das rotas do React para o `index.html` |
 | `github.tf` | Usuário IAM do GitHub Actions, com acesso só aos recursos acima |
 
-A EC2 só aceita conexões vindas do CloudFront e o Aurora só aceita a EC2. A porta 22 fica fechada: a manutenção é por `aws ssm start-session`.
+A EC2 só aceita conexões vindas do CloudFront e o RDS só aceita a EC2. A porta 22 fica fechada: a manutenção é por `aws ssm start-session`.
+
+O banco é RDS MySQL, e não Aurora, porque a conta está no plano Free da AWS, que só libera o Aurora para PostgreSQL. Com o RDS, a homolog usa o MySQL 8.4 do ambiente local sem mudar nada no backend.
 
 ### Subindo o ambiente
 
@@ -192,7 +194,7 @@ Se a EC2 for recriada (por exemplo, ao mudar o `user_data`), ela já sobe a últ
 
 ### Custos e limpeza
 
-Em `us-east-1`, fica na faixa de **US$ 20 a 35 por mês**: a EC2 `t3.small` e o IP público são a maior parte. O Aurora pausa depois de 5 minutos sem uso e só cobra armazenamento enquanto está pausado. A primeira requisição depois da pausa leva cerca de 15 s. Com `db_min_acu = 0.5` no `terraform.tfvars` ele não pausa, mas custa mais.
+Em `us-east-1`, fica em torno de **US$ 33 por mês**: a EC2 `t3.small` (cerca de 15), o RDS `db.t4g.micro` com 20 GB (cerca de 14) e o IP público (cerca de 3,6). S3, CloudFront e ECR custam centavos. Para economizar sem apagar nada, o RDS pode ser parado com `aws rds stop-db-instance`, mas a AWS religa sozinha depois de 7 dias.
 
 Para apagar tudo, inclusive as chaves do usuário de deploy:
 
