@@ -6,14 +6,17 @@ import com.merito_es.merito.service.TipoCombustivelService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.annotation.Profile;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
 import javax.swing.*;
 import java.awt.*;
 
+// No servidor (perfil prod, dentro do container) só a API REST sobe.
 @Slf4j
 @Component
+@Profile("!prod")
 @RequiredArgsConstructor
 public class MainFrame {
 
