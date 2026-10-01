@@ -1,0 +1,319 @@
+/* Totem bandeira branca: coluna em azul-petróleo, placas de acrílico branco, pátio de concreto claro. */
+
+:root {
+  /* Totem */
+  --petroleo: #0e3a42;
+  --petroleo-fundo: #0a2d34;
+  --petroleo-claro: #144853;
+  --petroleo-junta: #24606b;
+  --petroleo-texto: #a9c4c7;
+  --placa: #f5f7f4;
+  --numeral: #101614;
+
+  /* Pátio e folhas */
+  --patio: #e4e8e2;
+  --folha: #fbfcfa;
+  --folha-hover: #f1f4ef;
+  --regua: #d5dad2;
+  --regua-forte: #a3aca4;
+  --texto: #18201e;
+  --texto-2: #4f5a56;
+  --texto-3: #66706c;
+
+  /* Sinal reservado: só o registro em que se está mexendo agora. */
+  --sinal: #c0166f;
+  --sinal-fundo: #fbe8f1;
+
+  /* Estados */
+  --erro: #a3221a;
+  --erro-texto: #7d1912;
+  --erro-fundo: #fbebe8;
+  --erro-borda: #eac2bb;
+  --foco: var(--petroleo);
+
+  /* Letreiro de LED */
+  --led-fundo: #0b0d0c;
+  --led: #ffb21a;
+  --led-apagado: #a37a2c;
+  --led-erro: #ff6b5b;
+
+  --fonte: 'Barlow', system-ui, sans-serif;
+  --fonte-semi: 'Barlow Semi Condensed', 'Barlow', system-ui, sans-serif;
+  --fonte-placa: 'Barlow Condensed', 'Barlow', system-ui, sans-serif;
+  --fonte-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+  --raio: 2px;
+  --sombra-placa: 0 1px 2px rgb(0 0 0 / 0.28);
+  --sombra-flutuante: 0 14px 36px rgb(10 20 18 / 0.28);
+
+  color-scheme: light;
+  font: 400 15px/1.5 var(--fonte);
+  color: var(--texto);
+  background: var(--patio);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  accent-color: var(--petroleo);
+  caret-color: var(--petroleo);
+  scrollbar-color: var(--regua-forte) transparent;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  background: var(--patio);
+}
+
+::selection {
+  background: var(--petroleo);
+  color: #fff;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+
+h1,
+h2 {
+  text-wrap: balance;
+}
+
+a {
+  color: var(--petroleo);
+  text-underline-offset: 0.18em;
+  text-decoration-thickness: 1px;
+}
+
+a:hover {
+  text-decoration-thickness: 2px;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--foco);
+  outline-offset: 2px;
+}
+
+code {
+  font-family: var(--fonte-mono);
+  font-size: 0.9em;
+  padding: 1px 5px;
+  border-radius: var(--raio);
+  background: #e9ede7;
+  color: var(--texto);
+}
+
+/* Uma troca de valor dá dois quadros secos, como uma placa de número trocada no totem. */
+.passo {
+  animation: passo 90ms steps(2, jump-none);
+}
+
+@keyframes passo {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .passo {
+    animation: none;
+  }
+}
+
+.icone {
+  flex: none;
+  display: block;
+}
+
+.visualmente-oculto {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.pular {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 50;
+  padding: 10px 14px;
+  background: var(--placa);
+  color: var(--petroleo);
+  font: 600 15px var(--fonte-semi);
+  border-radius: var(--raio);
+  transform: translateY(-200%);
+}
+
+.pular:focus {
+  transform: none;
+}
+
+/* Preço com o milésimo pequeno, como nas placas de posto. */
+.preco {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.preco__moeda {
+  font-size: 0.62em;
+  margin-right: 0.22em;
+  color: inherit;
+}
+
+.preco__milesimo {
+  display: inline-block;
+  font-size: 0.6em;
+  line-height: 1;
+  vertical-align: top;
+  margin-left: 0.04em;
+  transform: translateY(0.08em);
+}
+
+.preco__unidade {
+  font-size: 0.5em;
+  margin-left: 0.18em;
+  color: var(--texto-2);
+  letter-spacing: 0.02em;
+}
+
+.tinteiro {
+  display: inline-block;
+  flex: none;
+  width: 12px;
+  height: 12px;
+  border-radius: var(--raio);
+}
+
+.combustivel {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.apagado {
+  color: var(--texto-3);
+}
+
+/* Botões */
+.botao {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 42px;
+  padding: 0 18px;
+  border: 1px solid transparent;
+  border-radius: var(--raio);
+  background: none;
+  font: 600 15px/1 var(--fonte-semi);
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.botao:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.botao:disabled {
+  cursor: not-allowed;
+}
+
+.botao--primario {
+  background: var(--petroleo);
+  color: #fff;
+}
+
+.botao--primario:hover:not(:disabled) {
+  background: var(--petroleo-fundo);
+}
+
+.botao--primario:disabled {
+  background: #7f8b86;
+}
+
+.botao--primario[aria-busy] {
+  background: var(--petroleo-claro);
+  cursor: progress;
+}
+
+.botao--secundario {
+  border-color: var(--regua-forte);
+  background: var(--folha);
+  color: var(--texto);
+}
+
+.botao--secundario:hover:not(:disabled) {
+  background: var(--folha-hover);
+  border-color: var(--texto-3);
+}
+
+.botao--texto {
+  height: 34px;
+  padding: 0 10px;
+  color: var(--texto-2);
+}
+
+.botao--texto:hover:not(:disabled) {
+  background: #e8ece6;
+  color: var(--texto);
+}
+
+.botao--texto:disabled {
+  color: var(--texto-3);
+  opacity: 0.7;
+}
+
+.botao--perigo {
+  background: var(--erro);
+  color: #fff;
+}
+
+.botao--perigo:hover:not(:disabled) {
+  background: var(--erro-texto);
+}
+
+.botao--excluir:hover:not(:disabled) {
+  color: var(--erro);
+  background: var(--erro-fundo);
+}
+
+.botao--pequeno {
+  height: 32px;
+  padding: 0 10px;
+  font-size: 14px;
+  gap: 6px;
+}
+
+.botao--grande {
+  height: 52px;
+  padding: 0 26px;
+  font-size: 17px;
+}
