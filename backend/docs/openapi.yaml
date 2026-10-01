@@ -1,6 +1,6 @@
 openapi: 3.0.3
 info:
-  title: Mérito — API de Abastecimentos
+  title: Mérito · API de Abastecimentos
   version: 0.0.1
   description: |
     API REST para cadastro e consulta de tipos de combustível, bombas e abastecimentos
