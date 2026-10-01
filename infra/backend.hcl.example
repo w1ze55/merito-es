@@ -1,0 +1,5 @@
+# Copie para backend.hcl (fora do git) e troque <ACCOUNT_ID>.
+bucket  = "merito-es-homolog-tfstate-<ACCOUNT_ID>"
+key     = "homolog/terraform.tfstate"
+region  = "us-east-1"
+profile = "merito"

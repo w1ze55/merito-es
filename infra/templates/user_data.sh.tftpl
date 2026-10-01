@@ -1,0 +1,57 @@
+#!/bin/bash
+# Primeiro boot da EC2 (gerado pelo Terraform a partir de infra/templates/user_data.sh.tftpl).
+set -euo pipefail
+
+dnf install -y docker
+systemctl enable --now docker
+
+mkdir -p /opt/merito
+cat > /opt/merito/deploy.sh <<'DEPLOY'
+#!/bin/bash
+# Troca o container da API pela imagem da tag informada. O GitHub Actions chama via SSM Run Command.
+set -euo pipefail
+
+TAG="$${1:?informe a tag da imagem}"
+REGION="${region}"
+REGISTRY="${registry}"
+IMAGEM="${image}:$TAG"
+PREFIXO="${ssm_prefix}"
+ENV_FILE=/opt/merito/app.env
+
+parametro() {
+  aws ssm get-parameter --region "$REGION" --name "$PREFIXO/$1" --with-decryption \
+    --query Parameter.Value --output text
+}
+
+aws ecr get-login-password --region "$REGION" | docker login --username AWS --password-stdin "$REGISTRY"
+docker pull "$IMAGEM"
+
+umask 077
+{
+  echo "DB_URL=$(parametro db/url)"
+  echo "DB_USERNAME=$(parametro db/username)"
+  echo "DB_PASSWORD=$(parametro db/password)"
+} > "$ENV_FILE"
+
+docker rm -f merito-api 2>/dev/null || true
+docker run -d --name merito-api --restart unless-stopped \
+  --env-file "$ENV_FILE" -p 80:8080 "$IMAGEM"
+
+# A API só responde depois de subir o Spring e rodar as migrations do Flyway.
+for _ in $(seq 1 36); do
+  if curl -fsS -o /dev/null http://localhost/api/tipos-combustivel; then
+    echo "API no ar com $IMAGEM"
+    docker image prune -af --filter "until=24h" > /dev/null || true
+    exit 0
+  fi
+  sleep 5
+done
+
+echo "A API não respondeu em 3 minutos." >&2
+docker logs --tail 100 merito-api >&2 || true
+exit 1
+DEPLOY
+chmod 700 /opt/merito/deploy.sh
+
+# Se a EC2 for recriada, já sobe a última imagem publicada. Na primeira vez o ECR está vazio.
+/opt/merito/deploy.sh homolog || echo "Sem imagem no ECR ainda: o primeiro deploy vem do GitHub Actions."

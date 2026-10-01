@@ -1,0 +1,7 @@
+# Copie para terraform.tfvars (fora do git). Só account_id é obrigatório.
+account_id = "<ACCOUNT_ID>"
+
+# aws_profile   = "merito"
+# region        = "us-east-1"
+# instance_type = "t3.small"
+# db_instance_class = "db.t4g.micro"
