@@ -78,7 +78,7 @@ jobs:
             --parameters "commands=[\"/opt/merito/deploy.sh $GITHUB_SHA\"]" \
             --query Command.CommandId --output text)
 
-          # O aws ssm wait desiste em 100 s, e o Aurora pausado pode levar mais que isso para acordar.
+          # O aws ssm wait desiste em 100 s; o deploy.sh espera a API por até 3 minutos.
           status=Pending
           for _ in $(seq 1 60); do
             sleep 5
