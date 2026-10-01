@@ -11,14 +11,67 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: homolog
   cancel-in-progress: false
 
 jobs:
+  mudancas:
+    name: Mudanças desde o último deploy
+    runs-on: ubuntu-latest
+
+    outputs:
+      api: ${{ steps.filtro.outputs.api }}
+      web: ${{ steps.filtro.outputs.web }}
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      # Compara com o último run que deu certo, não com o push anterior: se um deploy falhar,
+      # o push seguinte ainda publica o que ficou para trás. O deploy manual publica tudo.
+      - id: filtro
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          base=$(gh run list --workflow homolog.yml --branch homolog --status success --limit 1 \
+            --json headSha --jq '.[0].headSha // ""')
+
+          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
+            echo "Deploy manual: publica tudo."
+            tudo=true
+          elif [ -z "$base" ] || ! git cat-file -e "$base^{commit}" 2>/dev/null; then
+            echo "Último deploy não encontrado no histórico: publica tudo."
+            tudo=true
+          else
+            echo "Último deploy com sucesso: ${base::7}"
+            tudo=false
+            # Arquivos de cada commit, e não só a diferença final: um commit revertido depois
+            # de um deploy que falhou no meio pode ter sido publicado e precisa ser desfeito.
+            arquivos=$(git log --format= --name-only --diff-merges=first-parent "$base..$GITHUB_SHA")
+          fi
+
+          # Mudar este workflow também publica as duas partes.
+          for parte in api:backend/ web:merito-es/; do
+            nome=${parte%%:*}
+            pasta=${parte#*:}
+            if [ "$tudo" = true ] || grep -qE "^($pasta|\.github/workflows/homolog\.yml$)" <<< "$arquivos"; then
+              echo "$nome=true" >> "$GITHUB_OUTPUT"
+              echo "$nome: publica"
+            else
+              echo "$nome=false" >> "$GITHUB_OUTPUT"
+              echo "$nome: sem mudanças, pulado"
+            fi
+          done
+
   api:
     name: API · build, testes e deploy na EC2
+    needs: mudancas
+    if: needs.mudancas.outputs.api == 'true'
     runs-on: ubuntu-latest
 
     # O contextLoads sobe o Flyway e precisa de um MySQL igual ao do docker-compose.yml.
@@ -97,7 +150,9 @@ jobs:
 
   web:
     name: Frontend · build e publicação no S3
-    needs: api
+    # Espera o deploy da API quando ele roda, mas também roda quando a API é pulada.
+    needs: [mudancas, api]
+    if: ${{ !failure() && !cancelled() && needs.mudancas.outputs.web == 'true' }}
     runs-on: ubuntu-latest
 
     defaults:
