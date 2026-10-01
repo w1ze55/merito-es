@@ -10,13 +10,12 @@ COPY src/ src/
 COPY docs/ docs/
 RUN --mount=type=cache,target=/root/.m2 ./mvnw -B -DskipTests package
 
-# Runtime: só a JRE e o jar, sem root e sem a janela Swing (perfil prod + headless).
+# Runtime: só a JRE e o jar, sem root.
 FROM eclipse-temurin:25-jre
 WORKDIR /app
 RUN groupadd --system merito && useradd --system --gid merito merito
 COPY --from=build /app/target/*.jar app.jar
 USER merito
-ENV SPRING_PROFILES_ACTIVE=prod \
-    JAVA_TOOL_OPTIONS="-Djava.awt.headless=true -XX:MaxRAMPercentage=75"
+ENV JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75"
 EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "app.jar"]
