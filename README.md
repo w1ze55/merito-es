@@ -17,6 +17,7 @@ Levar o sistema do desktop para a web:
 | Interface | Java Swing | Web (React, frontend estático) |
 | API | REST local | REST hospedada na EC2 |
 | Banco | MySQL no Docker local | Aurora MySQL (RDS) |
+| Infraestrutura | Docker Compose local | Terraform (infra como código) |
 | Deploy | Manual | GitHub Actions (CI/CD) |
 
 ---
@@ -29,7 +30,8 @@ Levar o sistema do desktop para a web:
 | Backend | **Spring Boot + Docker** | API REST empacotada em imagem Docker |
 | Servidor | **EC2** | Executa o container da API |
 | Frontend | **S3** | Hospeda os arquivos estáticos da interface web |
-| Domínio / CDN | **CloudFront** | Domínio próprio, HTTPS, cache e roteamento entre S3 e EC2 |
+| Domínio / CDN | **CloudFront** | HTTPS, cache e roteamento entre S3 e EC2 |
+| Infraestrutura | **Terraform** | Cria e versiona toda a infra da AWS (`infra/`) |
 | CI/CD | **GitHub Actions** | Build, testes e deploy automáticos a cada push na `homolog` |
 
 ---
@@ -38,25 +40,28 @@ Levar o sistema do desktop para a web:
 
 A cada push na `homolog`:
 
-1. **Build e testes** do backend com Maven
-2. **Build da imagem Docker** da API
-3. **Deploy na EC2**: o container é atualizado com a nova imagem
+1. **Build e testes** do backend com Maven (contra um MySQL de serviço)
+2. **Build da imagem Docker** da API e push para o **ECR**
+3. **Deploy na EC2** via SSM Run Command: o container é atualizado com a nova imagem, sem SSH
 4. **Build do frontend** e upload para o **S3**
 5. **Invalidação do cache** do CloudFront, para a versão nova entrar no ar na hora
 
-Credenciais da AWS e do banco ficam no **GitHub Secrets**; nada sensível é versionado.
+As chaves do usuário IAM de deploy, que só pode publicar no ECR, no S3 e na EC2 deste projeto, ficam no **GitHub Secrets**. A senha do banco nem passa pelo GitHub: o Terraform gera a senha e a guarda no **SSM Parameter Store**, de onde só a EC2 lê. Nada sensível é versionado.
+
+O workflow está em [`.github/workflows/homolog.yml`](.github/workflows/homolog.yml).
 
 ---
 
 ## 📌 Roadmap dos diferenciais
 
-- [ ] `Dockerfile` multi-stage do backend
-- [ ] Perfil de produção sem Swing (o `MainFrame` não deve subir no servidor)
+- [x] `Dockerfile` multi-stage do backend
+- [x] Perfil de produção sem Swing (o `MainFrame` não sobe com o perfil `prod`)
 - [x] Interface web consumindo a API REST
+- [x] Infraestrutura como código com Terraform
 - [ ] Banco MySQL no RDS Aurora (o schema é criado pelas migrations do Flyway)
 - [ ] API rodando em container na EC2
 - [ ] Frontend hospedado no S3
-- [ ] CloudFront com domínio e HTTPS
+- [ ] CloudFront com HTTPS (domínio próprio depois)
 - [ ] Pipeline de CI/CD no GitHub Actions
 
 ---
@@ -69,7 +74,9 @@ A conexão com o banco é feita por variáveis de ambiente, então o mesmo códi
 |---|---|---|
 | `DB_URL` | `jdbc:mysql://localhost:4306/abastecimento` | Endpoint do cluster Aurora |
 | `DB_USERNAME` | `merito` | Usuário do Aurora |
-| `DB_PASSWORD` | `merito` | Senha do Aurora (via GitHub Secrets) |
+| `DB_PASSWORD` | `merito` | Gerada pelo Terraform e lida do SSM Parameter Store |
+
+No container, o perfil `prod` fica ativo e a JVM roda em modo headless, então só a API REST sobe.
 
 ---
 
@@ -105,6 +112,95 @@ npm run dev
 ```
 
 A interface abre em `http://localhost:5173`. O Vite encaminha `/api` para `http://localhost:8080` (a API não tem CORS; em produção o CloudFront faz o mesmo roteamento). Com o banco vazio, o botão **Carregar dados de exemplo** cria combustíveis, bombas e abastecimentos fictícios pela própria API.
+
+---
+
+## ☁️ Infraestrutura (Terraform)
+
+Toda a infra da AWS está em [`infra/`](infra/) e é criada com um `terraform apply`:
+
+```
+Navegador ─HTTPS─► CloudFront ─┬─ /* ──────────────► S3 (frontend, privado)
+                               └─ /api/*, swagger ─► EC2 (container da API) ─► Aurora (subnet privada)
+```
+
+| Arquivo | O que cria |
+|---|---|
+| `network.tf` | VPC própria, subnets públicas (EC2) e privadas (Aurora), security groups |
+| `database.tf` | Aurora MySQL Serverless v2, que pausa quando ocioso, e os parâmetros do banco no SSM |
+| `ecr.tf` | Repositório das imagens da API |
+| `ec2.tf` | EC2 com Docker, role com permissões mínimas e o script de deploy |
+| `frontend.tf` | Bucket S3 privado, lido só pelo CloudFront |
+| `cdn.tf` | Distribuição CloudFront, com rewrite das rotas do React para o `index.html` |
+| `github.tf` | Usuário IAM do GitHub Actions, com acesso só aos recursos acima |
+
+A EC2 só aceita conexões vindas do CloudFront e o Aurora só aceita a EC2. A porta 22 fica fechada: a manutenção é por `aws ssm start-session`.
+
+### Subindo o ambiente
+
+Pré-requisitos: **Terraform 1.10+**, **AWS CLI**, **GitHub CLI** e **jq**.
+
+```bash
+brew tap hashicorp/tap && brew install hashicorp/tap/terraform
+```
+
+1. **Perfil exclusivo na AWS.** Um admin da conta cria o usuário IAM `merito-es-terraform` com `AdministratorAccess` e uma access key. Configure sempre com `--profile`, para não sobrescrever as credenciais padrão do CLI:
+
+   ```bash
+   aws configure --profile merito
+   aws sts get-caller-identity --profile merito   # deve mostrar user/merito-es-terraform
+   ```
+
+   O Terraform usa o perfil `merito` fixo e recusa qualquer conta diferente de `account_id`.
+
+2. **Bucket do state.** Só uma vez:
+
+   ```bash
+   CONTA=<ACCOUNT_ID>
+   BUCKET=merito-es-homolog-tfstate-$CONTA
+   aws s3api create-bucket --bucket $BUCKET --profile merito
+   aws s3api put-bucket-versioning --bucket $BUCKET --versioning-configuration Status=Enabled --profile merito
+   aws s3api put-public-access-block --bucket $BUCKET --profile merito \
+     --public-access-block-configuration BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true
+   ```
+
+3. **Criar a infra.**
+
+   ```bash
+   cd infra
+   cp backend.hcl.example backend.hcl            # troque <ACCOUNT_ID>
+   cp terraform.tfvars.example terraform.tfvars  # troque <ACCOUNT_ID>
+   terraform init -backend-config=backend.hcl
+   terraform plan    # revise: na primeira vez, só criações (+)
+   terraform apply
+   ```
+
+4. **Ligar o GitHub Actions.** As variáveis do repositório saem do Terraform. A chave do usuário de deploy vai direto do CLI para o GitHub Secrets, sem aparecer no terminal:
+
+   ```bash
+   terraform output -json github_variables | jq -r 'to_entries[] | "\(.key) \(.value)"' \
+     | while read k v; do gh variable set "$k" --body "$v"; done
+
+   aws iam create-access-key --user-name "$(terraform output -raw github_deploy_user)" --profile merito \
+     | jq -r '.AccessKey | "\(.AccessKeyId) \(.SecretAccessKey)"' \
+     | { read id segredo; gh secret set AWS_ACCESS_KEY_ID --body "$id"; gh secret set AWS_SECRET_ACCESS_KEY --body "$segredo"; }
+   ```
+
+5. **Publicar.** Um push na `homolog`, ou *Run workflow* no Actions, publica a API e o frontend. O endereço sai em `terraform output site_url`, e o Swagger fica em `/swagger-ui/index.html`.
+
+Se a EC2 for recriada (por exemplo, ao mudar o `user_data`), ela já sobe a última imagem do ECR. Nesse caso, rode de novo o primeiro comando do passo 4, porque o `EC2_INSTANCE_ID` muda.
+
+### Custos e limpeza
+
+Em `us-east-1`, fica na faixa de **US$ 20 a 35 por mês**: a EC2 `t3.small` e o IP público são a maior parte. O Aurora pausa depois de 5 minutos sem uso e só cobra armazenamento enquanto está pausado. A primeira requisição depois da pausa leva cerca de 15 s. Com `db_min_acu = 0.5` no `terraform.tfvars` ele não pausa, mas custa mais.
+
+Para apagar tudo, inclusive as chaves do usuário de deploy:
+
+```bash
+terraform destroy
+```
+
+O state do Terraform guarda a senha do banco, por isso o bucket do state é privado, versionado e criptografado.
 
 ---
 
