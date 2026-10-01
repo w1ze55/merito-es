@@ -52,7 +52,7 @@ Credenciais da AWS e do banco ficam no **GitHub Secrets**; nada sensível é ver
 
 - [ ] `Dockerfile` multi-stage do backend
 - [ ] Perfil de produção sem Swing (o `MainFrame` não deve subir no servidor)
-- [ ] Interface web consumindo a API REST
+- [x] Interface web consumindo a API REST
 - [ ] Banco MySQL no RDS Aurora (o schema é criado pelas migrations do Flyway)
 - [ ] API rodando em container na EC2
 - [ ] Frontend hospedado no S3
@@ -87,6 +87,24 @@ cd backend
 ```
 
 O Flyway cria as tabelas na primeira execução.
+
+Para usar só a API, sem abrir a janela Swing:
+
+```bash
+./mvnw spring-boot:run -Dspring-boot.run.jvmArguments="-Djava.awt.headless=true"
+```
+
+### Interface web
+
+Pré-requisito: **Node 20.19+**. Com a API rodando na porta 8080:
+
+```bash
+cd merito-es
+npm install
+npm run dev
+```
+
+A interface abre em `http://localhost:5173`. O Vite encaminha `/api` para `http://localhost:8080` (a API não tem CORS; em produção o CloudFront faz o mesmo roteamento). Com o banco vazio, o botão **Carregar dados de exemplo** cria combustíveis, bombas e abastecimentos fictícios pela própria API.
 
 ---
 
