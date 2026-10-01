@@ -55,14 +55,14 @@ O workflow está em [`.github/workflows/homolog.yml`](.github/workflows/homolog.
 ## 📌 Roadmap dos diferenciais
 
 - [x] `Dockerfile` multi-stage do backend
-- [x] Backend só com a API REST (as telas Java Swing ficam na `main`)
+- [x] Backend só com a API REST
 - [x] Interface web consumindo a API REST
 - [x] Infraestrutura como código com Terraform
-- [ ] Banco MySQL no RDS (o schema é criado pelas migrations do Flyway)
-- [ ] API rodando em container na EC2
-- [ ] Frontend hospedado no S3
-- [ ] CloudFront com HTTPS (domínio próprio depois)
-- [ ] Pipeline de CI/CD no GitHub Actions
+- [x] Banco MySQL no RDS
+- [x] API rodando em container na EC2
+- [x] Frontend hospedado no S3
+- [x] CloudFront com HTTPS
+- [x] Pipeline de CI/CD no GitHub Actions
 
 ---
 
@@ -104,97 +104,6 @@ npm run dev
 ```
 
 A interface abre em `http://localhost:5173`. O Vite encaminha `/api` para `http://localhost:8080` (a API não tem CORS; em produção o CloudFront faz o mesmo roteamento). Com o banco vazio, o botão **Carregar dados de exemplo** cria combustíveis, bombas e abastecimentos fictícios pela própria API.
-
----
-
-## ☁️ Infraestrutura (Terraform)
-
-Toda a infra da AWS está em [`infra/`](infra/) e é criada com um `terraform apply`:
-
-```
-Navegador ─HTTPS─► CloudFront ─┬─ /* ──────────────► S3 (frontend, privado)
-                               └─ /api/*, swagger ─► EC2 (container da API) ─► RDS MySQL (subnet privada)
-```
-
-| Arquivo | O que cria |
-|---|---|
-| `network.tf` | VPC própria, subnets públicas (EC2) e privadas (RDS), security groups |
-| `database.tf` | RDS MySQL 8.4 (`db.t4g.micro`) e os parâmetros do banco no SSM |
-| `ecr.tf` | Repositório das imagens da API |
-| `ec2.tf` | EC2 com Docker, role com permissões mínimas e o script de deploy |
-| `frontend.tf` | Bucket S3 privado, lido só pelo CloudFront |
-| `cdn.tf` | Distribuição CloudFront, com rewrite das rotas do React para o `index.html` |
-| `github.tf` | Usuário IAM do GitHub Actions, com acesso só aos recursos acima |
-
-A EC2 só aceita conexões vindas do CloudFront e o RDS só aceita a EC2. A porta 22 fica fechada: a manutenção é por `aws ssm start-session`.
-
-O banco é RDS MySQL, e não Aurora, porque a conta está no plano Free da AWS, que só libera o Aurora para PostgreSQL. Com o RDS, a homolog usa o MySQL 8.4 do ambiente local sem mudar nada no backend.
-
-### Subindo o ambiente
-
-Pré-requisitos: **Terraform 1.10+**, **AWS CLI**, **GitHub CLI** e **jq**.
-
-```bash
-brew tap hashicorp/tap && brew install hashicorp/tap/terraform
-```
-
-1. **Perfil exclusivo na AWS.** Um admin da conta cria o usuário IAM `merito-es-terraform` com `AdministratorAccess` e uma access key. Configure sempre com `--profile`, para não sobrescrever as credenciais padrão do CLI:
-
-   ```bash
-   aws configure --profile merito
-   aws sts get-caller-identity --profile merito   # deve mostrar user/merito-es-terraform
-   ```
-
-   O Terraform usa o perfil `merito` fixo e recusa qualquer conta diferente de `account_id`.
-
-2. **Bucket do state.** Só uma vez:
-
-   ```bash
-   CONTA=<ACCOUNT_ID>
-   BUCKET=merito-es-homolog-tfstate-$CONTA
-   aws s3api create-bucket --bucket $BUCKET --profile merito
-   aws s3api put-bucket-versioning --bucket $BUCKET --versioning-configuration Status=Enabled --profile merito
-   aws s3api put-public-access-block --bucket $BUCKET --profile merito \
-     --public-access-block-configuration BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true
-   ```
-
-3. **Criar a infra.**
-
-   ```bash
-   cd infra
-   cp backend.hcl.example backend.hcl            # troque <ACCOUNT_ID>
-   cp terraform.tfvars.example terraform.tfvars  # troque <ACCOUNT_ID>
-   terraform init -backend-config=backend.hcl
-   terraform plan    # revise: na primeira vez, só criações (+)
-   terraform apply
-   ```
-
-4. **Ligar o GitHub Actions.** As variáveis do repositório saem do Terraform. A chave do usuário de deploy vai direto do CLI para o GitHub Secrets, sem aparecer no terminal:
-
-   ```bash
-   terraform output -json github_variables | jq -r 'to_entries[] | "\(.key) \(.value)"' \
-     | while read k v; do gh variable set "$k" --body "$v"; done
-
-   aws iam create-access-key --user-name "$(terraform output -raw github_deploy_user)" --profile merito \
-     | jq -r '.AccessKey | "\(.AccessKeyId) \(.SecretAccessKey)"' \
-     | { read id segredo; gh secret set AWS_ACCESS_KEY_ID --body "$id"; gh secret set AWS_SECRET_ACCESS_KEY --body "$segredo"; }
-   ```
-
-5. **Publicar.** Um push na `homolog`, ou *Run workflow* no Actions, publica a API e o frontend. O endereço sai em `terraform output site_url`, e o Swagger fica em `/swagger-ui/index.html`.
-
-Se a EC2 for recriada (por exemplo, ao mudar o `user_data`), ela já sobe a última imagem do ECR. Nesse caso, rode de novo o primeiro comando do passo 4, porque o `EC2_INSTANCE_ID` muda.
-
-### Custos e limpeza
-
-Em `us-east-1`, fica em torno de **US$ 33 por mês**: a EC2 `t3.small` (cerca de 15), o RDS `db.t4g.micro` com 20 GB (cerca de 14) e o IP público (cerca de 3,6). S3, CloudFront e ECR custam centavos. Para economizar sem apagar nada, o RDS pode ser parado com `aws rds stop-db-instance`, mas a AWS religa sozinha depois de 7 dias.
-
-Para apagar tudo, inclusive as chaves do usuário de deploy:
-
-```bash
-terraform destroy
-```
-
-O state do Terraform guarda a senha do banco, por isso o bucket do state é privado, versionado e criptografado.
 
 ---
 
