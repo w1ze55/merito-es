@@ -277,6 +277,32 @@ a.placa[data-ativa]:focus-visible {
   font-variant-numeric: tabular-nums;
 }
 
+.totem__letreiro {
+  display: grid;
+  gap: 6px;
+}
+
+/* Atalho para o Swagger, logo abaixo do letreiro. */
+.totem__swagger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--petroleo-junta);
+  border-radius: var(--raio);
+  color: var(--petroleo-texto);
+  font: 600 13px/1 var(--fonte-semi);
+  text-decoration: none;
+}
+
+.totem__swagger:hover {
+  background: var(--petroleo-claro);
+  color: #fff;
+  text-decoration: none;
+}
+
 /* Registro completo de chamadas, aberto pelo letreiro. */
 .registro {
   position: fixed;

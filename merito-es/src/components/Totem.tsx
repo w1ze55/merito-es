@@ -90,6 +90,11 @@ export function Totem() {
 
       <div className="totem__letreiro">
         <Letreiro />
+        <a className="totem__swagger" href="/swagger-ui/index.html" target="_blank" rel="noreferrer">
+          <Icone nome="externo" tamanho={16} />
+          Documentação da API
+          <span className="visualmente-oculto"> (Swagger, abre em nova aba)</span>
+        </a>
       </div>
     </aside>
   )
