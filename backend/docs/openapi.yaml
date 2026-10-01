@@ -1,0 +1,577 @@
+openapi: 3.0.3
+info:
+  title: Mérito — API de Abastecimentos
+  version: 0.0.1
+  description: |
+    API REST para cadastro e consulta de tipos de combustível, bombas e abastecimentos
+    de um posto de combustível.
+
+    Erros seguem o formato [Problem Details (RFC 9457)](https://www.rfc-editor.org/rfc/rfc9457)
+    em `application/problem+json`. Falhas de validação trazem a lista de mensagens no campo `erros`.
+    JSON malformado ou `id` não numérico retornam 400 no formato padrão do Spring Boot
+    (`timestamp`, `status`, `error`, `path`).
+
+    Datas usam o formato local `AAAA-MM-DDTHH:MM:SS`, sem fuso horário.
+servers:
+  - url: http://localhost:8080
+    description: Ambiente local
+# A API não exige autenticação.
+security: []
+tags:
+  - name: Tipos de combustível
+    description: Combustíveis vendidos no posto e o preço por litro de cada um.
+  - name: Bombas
+    description: Bombas do posto, cada uma ligada a um tipo de combustível.
+  - name: Abastecimentos
+    description: Abastecimentos realizados em uma bomba. O valor total é calculado pela API.
+
+paths:
+  /api/tipos-combustivel:
+    get:
+      tags: [Tipos de combustível]
+      operationId: listarTiposCombustivel
+      summary: Lista os tipos de combustível
+      description: Retorna todos os tipos de combustível ordenados por nome.
+      responses:
+        '200':
+          description: Lista de tipos de combustível.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TipoCombustivelResponse'
+    post:
+      tags: [Tipos de combustível]
+      operationId: criarTipoCombustivel
+      summary: Cadastra um tipo de combustível
+      requestBody:
+        $ref: '#/components/requestBodies/TipoCombustivel'
+      responses:
+        '201':
+          description: Tipo de combustível cadastrado.
+          headers:
+            Location:
+              $ref: '#/components/headers/Location'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TipoCombustivelResponse'
+        '400':
+          $ref: '#/components/responses/DadosInvalidos'
+        '409':
+          description: Já existe um tipo de combustível com o mesmo nome (sem diferenciar maiúsculas).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problema'
+              example:
+                title: Operação não permitida
+                status: 409
+                detail: Já existe um tipo de combustível com o nome Gasolina comum.
+                instance: /api/tipos-combustivel
+
+  /api/tipos-combustivel/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Tipos de combustível]
+      operationId: buscarTipoCombustivel
+      summary: Busca um tipo de combustível
+      responses:
+        '200':
+          description: Tipo de combustível encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TipoCombustivelResponse'
+        '404':
+          $ref: '#/components/responses/TipoCombustivelNaoEncontrado'
+    put:
+      tags: [Tipos de combustível]
+      operationId: atualizarTipoCombustivel
+      summary: Atualiza um tipo de combustível
+      description: |
+        Altera nome e preço por litro. Abastecimentos já registrados mantêm o valor total
+        calculado no momento em que foram gravados.
+      requestBody:
+        $ref: '#/components/requestBodies/TipoCombustivel'
+      responses:
+        '200':
+          description: Tipo de combustível atualizado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TipoCombustivelResponse'
+        '400':
+          $ref: '#/components/responses/DadosInvalidos'
+        '404':
+          $ref: '#/components/responses/TipoCombustivelNaoEncontrado'
+        '409':
+          description: Outro tipo de combustível já usa esse nome.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problema'
+              example:
+                title: Operação não permitida
+                status: 409
+                detail: Já existe um tipo de combustível com o nome Etanol.
+                instance: /api/tipos-combustivel/1
+    delete:
+      tags: [Tipos de combustível]
+      operationId: excluirTipoCombustivel
+      summary: Exclui um tipo de combustível
+      responses:
+        '204':
+          description: Tipo de combustível excluído.
+        '404':
+          $ref: '#/components/responses/TipoCombustivelNaoEncontrado'
+        '409':
+          description: Existem bombas vinculadas a este tipo de combustível.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problema'
+              example:
+                title: Operação não permitida
+                status: 409
+                detail: Não é possível excluir o combustível Gasolina comum porque existem bombas vinculadas a ele.
+                instance: /api/tipos-combustivel/1
+
+  /api/bombas:
+    get:
+      tags: [Bombas]
+      operationId: listarBombas
+      summary: Lista as bombas
+      description: Retorna todas as bombas ordenadas por nome, com o tipo de combustível de cada uma.
+      responses:
+        '200':
+          description: Lista de bombas.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BombaCombustivelResponse'
+    post:
+      tags: [Bombas]
+      operationId: criarBomba
+      summary: Cadastra uma bomba
+      requestBody:
+        $ref: '#/components/requestBodies/BombaCombustivel'
+      responses:
+        '201':
+          description: Bomba cadastrada.
+          headers:
+            Location:
+              $ref: '#/components/headers/Location'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BombaCombustivelResponse'
+        '400':
+          $ref: '#/components/responses/DadosInvalidos'
+        '404':
+          $ref: '#/components/responses/TipoCombustivelNaoEncontrado'
+        '409':
+          $ref: '#/components/responses/NomeBombaDuplicado'
+
+  /api/bombas/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Bombas]
+      operationId: buscarBomba
+      summary: Busca uma bomba
+      responses:
+        '200':
+          description: Bomba encontrada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BombaCombustivelResponse'
+        '404':
+          $ref: '#/components/responses/BombaNaoEncontrada'
+    put:
+      tags: [Bombas]
+      operationId: atualizarBomba
+      summary: Atualiza uma bomba
+      requestBody:
+        $ref: '#/components/requestBodies/BombaCombustivel'
+      responses:
+        '200':
+          description: Bomba atualizada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BombaCombustivelResponse'
+        '400':
+          $ref: '#/components/responses/DadosInvalidos'
+        '404':
+          description: A bomba ou o tipo de combustível informado não existe.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problema'
+              example:
+                title: Recurso não encontrado
+                status: 404
+                detail: Bomba 1 não encontrada.
+                instance: /api/bombas/1
+        '409':
+          $ref: '#/components/responses/NomeBombaDuplicado'
+    delete:
+      tags: [Bombas]
+      operationId: excluirBomba
+      summary: Exclui uma bomba
+      responses:
+        '204':
+          description: Bomba excluída.
+        '404':
+          $ref: '#/components/responses/BombaNaoEncontrada'
+        '409':
+          description: Existem abastecimentos registrados nesta bomba.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problema'
+              example:
+                title: Operação não permitida
+                status: 409
+                detail: Não é possível excluir a bomba Bomba 01 porque existem abastecimentos registrados nela.
+                instance: /api/bombas/1
+
+  /api/abastecimentos:
+    get:
+      tags: [Abastecimentos]
+      operationId: listarAbastecimentos
+      summary: Lista os abastecimentos
+      description: Retorna todos os abastecimentos, do mais recente para o mais antigo.
+      responses:
+        '200':
+          description: Lista de abastecimentos.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AbastecimentoResponse'
+    post:
+      tags: [Abastecimentos]
+      operationId: criarAbastecimento
+      summary: Registra um abastecimento
+      description: |
+        O valor total é calculado pela API: preço por litro do combustível da bomba × litros,
+        arredondado para 2 casas decimais (meio para cima).
+      requestBody:
+        $ref: '#/components/requestBodies/Abastecimento'
+      responses:
+        '201':
+          description: Abastecimento registrado.
+          headers:
+            Location:
+              $ref: '#/components/headers/Location'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AbastecimentoResponse'
+        '400':
+          $ref: '#/components/responses/DadosInvalidos'
+        '404':
+          $ref: '#/components/responses/BombaNaoEncontrada'
+
+  /api/abastecimentos/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Abastecimentos]
+      operationId: buscarAbastecimento
+      summary: Busca um abastecimento
+      responses:
+        '200':
+          description: Abastecimento encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AbastecimentoResponse'
+        '404':
+          $ref: '#/components/responses/AbastecimentoNaoEncontrado'
+    put:
+      tags: [Abastecimentos]
+      operationId: atualizarAbastecimento
+      summary: Atualiza um abastecimento
+      description: O valor total é recalculado com o preço atual do combustível da bomba informada.
+      requestBody:
+        $ref: '#/components/requestBodies/Abastecimento'
+      responses:
+        '200':
+          description: Abastecimento atualizado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AbastecimentoResponse'
+        '400':
+          $ref: '#/components/responses/DadosInvalidos'
+        '404':
+          description: O abastecimento ou a bomba informada não existe.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problema'
+              example:
+                title: Recurso não encontrado
+                status: 404
+                detail: Abastecimento 1 não encontrado.
+                instance: /api/abastecimentos/1
+    delete:
+      tags: [Abastecimentos]
+      operationId: excluirAbastecimento
+      summary: Exclui um abastecimento
+      responses:
+        '204':
+          description: Abastecimento excluído.
+        '404':
+          $ref: '#/components/responses/AbastecimentoNaoEncontrado'
+
+components:
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      description: Identificador do registro.
+      schema:
+        type: integer
+        format: int64
+        example: 1
+
+  headers:
+    Location:
+      description: URL do registro criado.
+      schema:
+        type: string
+        format: uri
+        example: http://localhost:8080/api/tipos-combustivel/1
+
+  requestBodies:
+    TipoCombustivel:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/TipoCombustivelRequest'
+    BombaCombustivel:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/BombaCombustivelRequest'
+    Abastecimento:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/AbastecimentoRequest'
+
+  responses:
+    DadosInvalidos:
+      description: Um ou mais campos do corpo são inválidos.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemaValidacao'
+          example:
+            title: Dados inválidos
+            status: 400
+            detail: Verifique os campos informados.
+            instance: /api/tipos-combustivel
+            erros:
+              - Informe o nome do combustível.
+              - O preço por litro deve ser maior que zero.
+    TipoCombustivelNaoEncontrado:
+      description: O tipo de combustível não existe.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problema'
+          example:
+            title: Recurso não encontrado
+            status: 404
+            detail: Tipo de combustível 1 não encontrado.
+            instance: /api/tipos-combustivel/1
+    BombaNaoEncontrada:
+      description: A bomba não existe.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problema'
+          example:
+            title: Recurso não encontrado
+            status: 404
+            detail: Bomba 1 não encontrada.
+            instance: /api/bombas/1
+    AbastecimentoNaoEncontrado:
+      description: O abastecimento não existe.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problema'
+          example:
+            title: Recurso não encontrado
+            status: 404
+            detail: Abastecimento 1 não encontrado.
+            instance: /api/abastecimentos/1
+    NomeBombaDuplicado:
+      description: Já existe uma bomba com o mesmo nome (sem diferenciar maiúsculas).
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problema'
+          example:
+            title: Operação não permitida
+            status: 409
+            detail: Já existe uma bomba com o nome Bomba 01.
+            instance: /api/bombas
+
+  schemas:
+    TipoCombustivelRequest:
+      type: object
+      required: [nome, precoPorLitro]
+      properties:
+        nome:
+          type: string
+          maxLength: 100
+          description: Nome do combustível. Espaços nas pontas são removidos. Deve ser único.
+          example: Gasolina comum
+        precoPorLitro:
+          type: number
+          minimum: 0
+          exclusiveMinimum: true
+          maximum: 9999999.999
+          description: Preço por litro, maior que zero, com até 3 casas decimais.
+          example: 6.290
+
+    TipoCombustivelResponse:
+      type: object
+      required: [id, nome, precoPorLitro]
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        nome:
+          type: string
+          example: Gasolina comum
+        precoPorLitro:
+          type: number
+          example: 6.290
+
+    BombaCombustivelRequest:
+      type: object
+      required: [nome, tipoCombustivelId]
+      properties:
+        nome:
+          type: string
+          maxLength: 100
+          description: Nome da bomba. Espaços nas pontas são removidos. Deve ser único.
+          example: Bomba 01
+        tipoCombustivelId:
+          type: integer
+          format: int64
+          description: Tipo de combustível que a bomba abastece.
+          example: 1
+
+    BombaCombustivelResponse:
+      type: object
+      required: [id, nome, tipoCombustivel]
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        nome:
+          type: string
+          example: Bomba 01
+        tipoCombustivel:
+          $ref: '#/components/schemas/TipoCombustivelResponse'
+
+    AbastecimentoRequest:
+      type: object
+      required: [bombaId, dataAbastecimento, litros]
+      properties:
+        bombaId:
+          type: integer
+          format: int64
+          description: Bomba em que o abastecimento foi feito.
+          example: 1
+        dataAbastecimento:
+          $ref: '#/components/schemas/DataHoraLocal'
+        litros:
+          type: number
+          minimum: 0
+          exclusiveMinimum: true
+          maximum: 9999999.999
+          description: Litros abastecidos, maior que zero, com até 3 casas decimais.
+          example: 40.5
+
+    AbastecimentoResponse:
+      type: object
+      required: [id, bomba, dataAbastecimento, litros, valorTotal]
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        bomba:
+          $ref: '#/components/schemas/BombaCombustivelResponse'
+        dataAbastecimento:
+          $ref: '#/components/schemas/DataHoraLocal'
+        litros:
+          type: number
+          example: 40.5
+        valorTotal:
+          type: number
+          description: Preço por litro × litros, com 2 casas decimais. Calculado pela API.
+          example: 254.75
+
+    DataHoraLocal:
+      type: string
+      pattern: '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,9})?)?$'
+      description: Data e hora local, sem fuso horário. Não pode estar no futuro.
+      example: '2026-10-01T14:30:00'
+
+    Problema:
+      type: object
+      description: Corpo de erro no formato Problem Details (RFC 9457).
+      properties:
+        type:
+          type: string
+          description: URI do tipo de erro. Omitido quando é o padrão `about:blank`.
+        title:
+          type: string
+          example: Recurso não encontrado
+        status:
+          type: integer
+          example: 404
+        detail:
+          type: string
+          example: Bomba 1 não encontrada.
+        instance:
+          type: string
+          description: Caminho da requisição que gerou o erro.
+          example: /api/bombas/1
+
+    ProblemaValidacao:
+      allOf:
+        - $ref: '#/components/schemas/Problema'
+        - type: object
+          properties:
+            erros:
+              type: array
+              description: Mensagens de validação, em ordem alfabética.
+              items:
+                type: string
+              example:
+                - Informe o nome do combustível.
+                - O preço por litro deve ser maior que zero.
