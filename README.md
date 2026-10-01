@@ -55,7 +55,7 @@ O workflow está em [`.github/workflows/homolog.yml`](.github/workflows/homolog.
 ## 📌 Roadmap dos diferenciais
 
 - [x] `Dockerfile` multi-stage do backend
-- [x] Perfil de produção sem Swing (o `MainFrame` não sobe com o perfil `prod`)
+- [x] Backend só com a API REST (as telas Java Swing ficam na `main`)
 - [x] Interface web consumindo a API REST
 - [x] Infraestrutura como código com Terraform
 - [ ] Banco MySQL no RDS (o schema é criado pelas migrations do Flyway)
@@ -76,8 +76,6 @@ A conexão com o banco é feita por variáveis de ambiente, então o mesmo códi
 | `DB_USERNAME` | `merito` | Usuário do RDS |
 | `DB_PASSWORD` | `merito` | Gerada pelo Terraform e lida do SSM Parameter Store |
 
-No container, o perfil `prod` fica ativo e a JVM roda em modo headless, então só a API REST sobe.
-
 ---
 
 ## 🚀 Rodando localmente
@@ -88,18 +86,12 @@ Pré-requisitos: **Java 25** e **Docker**.
 # sobe o MySQL na porta 4306
 docker compose up -d
 
-# sobe a aplicação (API + telas Swing)
+# sobe a API REST na porta 8080
 cd backend
 ./mvnw spring-boot:run
 ```
 
 O Flyway cria as tabelas na primeira execução.
-
-Para usar só a API, sem abrir a janela Swing:
-
-```bash
-./mvnw spring-boot:run -Dspring-boot.run.jvmArguments="-Djava.awt.headless=true"
-```
 
 ### Interface web
 
@@ -229,6 +221,6 @@ Cada recurso expõe:
 ## ✅ Base herdada da `main`
 
 - CRUD de **tipos de combustível**, **bombas** (ligadas a um tipo de combustível) e **abastecimentos** (com bomba, data, litragem e valor)
-- Interface **Java Swing** e **API REST** sobre a mesma camada de serviço
+- **API REST** sobre a camada de serviço. Na `homolog`, as telas Java Swing da `main` deram lugar à interface web
 - Camadas organizadas: `controller`, `service`, `repository`, `model` e `dto`
 - Persistência em **MySQL**, com schema versionado pelo **Flyway**
